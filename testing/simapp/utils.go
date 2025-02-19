@@ -12,7 +12,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 	"io/ioutil"
 
-	"github.com/cosmos/ibc-go/v3/testing/simapp/helpers"
+	"github.com/cosmos/ibc-go/v4/testing/simapp/helpers"
 )
 
 // SetupSimulation creates the config, db (levelDB), temporary directory and logger for

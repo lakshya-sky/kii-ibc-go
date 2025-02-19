@@ -41,7 +41,7 @@ type interchainAccountPretty struct {
 
 // GenerateAddress returns an sdk.AccAddress derived using the provided module account address and connection and port identifiers.
 // The sdk.AccAddress returned is a sub-address of the module account, using the host chain connection ID and controller chain's port ID as the derivation key
-// Deprecated: this function is deprecated! Please use GenerateUniqueAddress in favour of GenerateAddress
+// NOTE: this function is deprecated!
 func GenerateAddress(moduleAccAddr sdk.AccAddress, connectionID, portID string) sdk.AccAddress {
 	return sdk.AccAddress(sdkaddress.Derive(moduleAccAddr, []byte(connectionID+portID)))
 }

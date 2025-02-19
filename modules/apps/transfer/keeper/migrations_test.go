@@ -3,11 +3,12 @@ package keeper_test
 import (
 	"fmt"
 
-	transferkeeper "github.com/cosmos/ibc-go/v3/modules/apps/transfer/keeper"
-	transfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
+	transferkeeper "github.com/cosmos/ibc-go/v4/modules/apps/transfer/keeper"
+	transfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
 )
 
 func (suite *KeeperTestSuite) TestMigratorMigrateTraces() {
+
 	testCases := []struct {
 		msg            string
 		malleate       func()

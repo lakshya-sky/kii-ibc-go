@@ -5,17 +5,19 @@ import (
 
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 
-	"github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
+	"github.com/cosmos/ibc-go/v4/modules/apps/transfer"
+	"github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	host "github.com/cosmos/ibc-go/v4/modules/core/24-host"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
 )
 
 func (suite *TransferTestSuite) TestOnChanOpenInit() {
 	var (
-		channel *channeltypes.Channel
-		path    *ibctesting.Path
-		chanCap *capabilitytypes.Capability
+		channel      *channeltypes.Channel
+		path         *ibctesting.Path
+		chanCap      *capabilitytypes.Capability
+		counterparty channeltypes.Counterparty
 	)
 
 	testCases := []struct {
@@ -25,6 +27,11 @@ func (suite *TransferTestSuite) TestOnChanOpenInit() {
 	}{
 		{
 			"success", func() {}, true,
+		},
+		{
+			"empty version string", func() {
+				channel.Version = ""
+			}, true,
 		},
 		{
 			"max channels reached", func() {
@@ -63,7 +70,7 @@ func (suite *TransferTestSuite) TestOnChanOpenInit() {
 			suite.coordinator.SetupConnections(path)
 			path.EndpointA.ChannelID = ibctesting.FirstChannelID
 
-			counterparty := channeltypes.NewCounterparty(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			counterparty = channeltypes.NewCounterparty(path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID)
 			channel = &channeltypes.Channel{
 				State:          channeltypes.INIT,
 				Ordering:       channeltypes.UNORDERED,
@@ -72,25 +79,23 @@ func (suite *TransferTestSuite) TestOnChanOpenInit() {
 				Version:        types.Version,
 			}
 
-			module, _, err := suite.chainA.App.GetIBCKeeper().PortKeeper.LookupModuleByPort(suite.chainA.GetContext(), ibctesting.TransferPort)
-			suite.Require().NoError(err)
-
+			var err error
 			chanCap, err = suite.chainA.App.GetScopedIBCKeeper().NewCapability(suite.chainA.GetContext(), host.ChannelCapabilityPath(ibctesting.TransferPort, path.EndpointA.ChannelID))
 			suite.Require().NoError(err)
 
-			cbs, ok := suite.chainA.App.GetIBCKeeper().Router.GetRoute(module)
-			suite.Require().True(ok)
-
 			tc.malleate() // explicitly change fields in channel and testChannel
 
-			err = cbs.OnChanOpenInit(suite.chainA.GetContext(), channel.Ordering, channel.GetConnectionHops(),
-				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, chanCap, channel.Counterparty, channel.GetVersion(),
+			transferModule := transfer.NewIBCModule(suite.chainA.GetSimApp().TransferKeeper)
+			version, err := transferModule.OnChanOpenInit(suite.chainA.GetContext(), channel.Ordering, channel.GetConnectionHops(),
+				path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, chanCap, counterparty, channel.GetVersion(),
 			)
 
 			if tc.expPass {
 				suite.Require().NoError(err)
+				suite.Require().Equal(types.Version, version)
 			} else {
 				suite.Require().Error(err)
+				suite.Require().Equal(version, "")
 			}
 		})
 	}
@@ -101,6 +106,7 @@ func (suite *TransferTestSuite) TestOnChanOpenTry() {
 		channel             *channeltypes.Channel
 		chanCap             *capabilitytypes.Capability
 		path                *ibctesting.Path
+		counterparty        channeltypes.Counterparty
 		counterpartyVersion string
 	)
 
@@ -118,10 +124,10 @@ func (suite *TransferTestSuite) TestOnChanOpenTry() {
 			}, false,
 		},
 		{
-			"capability already claimed in INIT should pass", func() {
+			"capability already claimed", func() {
 				err := suite.chainA.GetSimApp().ScopedTransferKeeper.ClaimCapability(suite.chainA.GetContext(), chanCap, host.ChannelCapabilityPath(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID))
 				suite.Require().NoError(err)
-			}, true,
+			}, false,
 		},
 		{
 			"invalid order - ORDERED", func() {
@@ -150,7 +156,7 @@ func (suite *TransferTestSuite) TestOnChanOpenTry() {
 			suite.coordinator.SetupConnections(path)
 			path.EndpointA.ChannelID = ibctesting.FirstChannelID
 
-			counterparty := channeltypes.NewCounterparty(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID)
+			counterparty = channeltypes.NewCounterparty(path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID)
 			channel = &channeltypes.Channel{
 				State:          channeltypes.TRYOPEN,
 				Ordering:       channeltypes.UNORDERED,
